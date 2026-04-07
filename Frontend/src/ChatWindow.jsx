@@ -5,53 +5,197 @@ import { useContext, useState, useEffect } from "react";
 import {ScaleLoader} from "react-spinners";
 
 function ChatWindow() {
-    const {prompt, setPrompt, reply, setReply, currThreadId, setPrevChats, setNewChat} = useContext(MyContext);
+    const {prompt, setPrompt, reply, setReply, currThreadId, prevChats, setPrevChats, setNewChat} = useContext(MyContext);
     const [loading, setLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
+    const [isImageMode, setIsImageMode] = useState(false);
 
-    const getReply = async () => {
-        setLoading(true);
+    const generateImage = async (imagePrompt, originalPrompt) => {
         setNewChat(false);
+        console.log("Calling image API...");
 
-        console.log("message ", prompt, " threadId ", currThreadId);
-        const options = {
+
+    const tempId = Date.now();
+    console.log("ADDING LOADING MESSAGE");
+    
+        await new Promise(resolve => {
+  setPrevChats(prev => [
+    ...prev,
+    { role: "user", content: originalPrompt },
+    {
+      role: "assistant",
+      content: "Creating image...",
+      type: "loading",
+      id: tempId
+    }
+  ]);
+  resolve();
+});
+
+        await new Promise(requestAnimationFrame);
+        
+
+    try {
+        console.log("Fetching image...");
+        const response = await fetch("http://localhost:8080/api/image", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({
-                message: prompt,
-                threadId: currThreadId
-            })
-        };
+            body: JSON.stringify({ prompt: imagePrompt })
+        });
 
-        try {
-            const response = await fetch("http://localhost:8080/api/chat", options);
-            const res = await response.json();
-            console.log(res);
-            setReply(res.reply);
-        } catch(err) {
-            console.log(err);
-        }
-        setLoading(false);
-    }
+        const data = await response.json();
 
-    //Append new chat to prevChats
-    useEffect(() => {
-        if(prompt && reply) {
-            setPrevChats(prevChats => (
-                [...prevChats, {
-                    role: "user",
-                    content: prompt
-                },{
-                    role: "assistant",
-                    content: reply
-                }]
-            ));
-        }
+        await fetch("http://localhost:8080/api/image-save", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+        threadId: currThreadId,
+        prompt: originalPrompt,
+        imageUrl: data.image
+    })
+});
+        console.log("Image URL:", data.image);
+
+        console.log("Image source:", data.source);
+
+
+
+        setPrevChats(prev =>
+            prev.map(chat =>
+                chat.id === tempId
+                    ? {
+                        role: "assistant",
+                        content: data.realImage || data.image,
+                        display: data.image,
+                        type: "image",
+                        id: tempId
+                      }
+                    : chat
+            )
+        );
 
         setPrompt("");
+        setLoading(false);   
+
+    } catch (err) {
+        console.log(err);
+        setReply("Image generation failed");
+    }
+
+    
+};
+
+    const getReply = async () => {
+        console.log("Prompt:", prompt);
+
+        if (!prompt.trim()) return;
+
+    
+    if (
+        prompt.startsWith("/image") ||
+        prompt.toLowerCase().includes("generate image")
+    ) {
+        setIsImageMode(true);
+        const imagePrompt = prompt
+        .toLowerCase()
+        .replace("generate image of", "")
+        .replace("generate image", "")
+        .replace("/image", "")
+        .replace("draw", "")
+        .trim();
+
+        if (!imagePrompt) {
+            setLoading(false);
+            setReply("Please enter what image you want to generate.");
+            return;
+        }
+
+         // ✅ call fixed function
+        generateImage(imagePrompt, prompt);
+
+        return; // VERY IMPORTANT
+    }
+
+    // ✅ NORMAL CHAT
+    setLoading(true);
+    setNewChat(false);
+
+    const options = {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            message: prompt,
+            threadId: currThreadId
+        })
+    };
+
+    try {
+        const response = await fetch("http://localhost:8080/api/chat", options);
+        if (!response.ok) {
+            throw new Error("Failed to generate image");
+        }
+        const res = await response.json();
+
+        setReply(res.reply);
+
+    } catch (err) {
+        console.log(err);
+    }
+
+    setLoading(false);
+};
+
+
+// 👇 ADD HERE
+useEffect(() => {
+  const savedChats = localStorage.getItem("chatHistory");
+
+  if (savedChats) {
+    setPrevChats(JSON.parse(savedChats));
+    setNewChat(false);
+  }
+}, []);
+
+    useEffect(() => {
+  const fetchChats = async () => {
+    try {
+      const res = await fetch(`http://localhost:8080/api/thread/${currThreadId}`);
+      const data = await res.json();
+
+      if (data && data.length > 0) {
+        setPrevChats(data);
+        setNewChat(false);
+      }
+    } catch (err) {
+      console.log("Failed to load chats", err);
+    }
+  };
+
+  fetchChats();
+}, [currThreadId]);
+
+    useEffect(() => {
+        if(prompt && reply && !isImageMode) {
+            setPrevChats(prev => [
+                ...prev,
+                { role: "user", content: prompt },
+                { role: "assistant", content: reply, type: "text" }
+            ]);
+
+            setPrompt("");
+        }
+        setIsImageMode(false);
     }, [reply]);
+
+    useEffect(() => {
+       localStorage.setItem("chatHistory", JSON.stringify(prevChats));
+    }, [prevChats]);
 
 
     const handleProfileClick = () => {
@@ -84,7 +228,11 @@ function ChatWindow() {
                     <input placeholder="Ask anything"
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter'? getReply() : ''}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                getReply();
+                            }
+                        }}
                     >
                            
                     </input>

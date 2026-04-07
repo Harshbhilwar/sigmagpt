@@ -1,72 +1,204 @@
-import "./Chat.css";
-import React, { useContext, useState, useEffect } from "react";
+import "./Chat.css"; 
+import React, { useContext} from "react";
+import { FiCopy, FiDownload } from "react-icons/fi";
 import { MyContext } from "./MyContext";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
+import { useState } from "react";
 
 function Chat() {
-    const {newChat, prevChats, reply} = useContext(MyContext);
-    const [latestReply, setLatestReply] = useState(null);
+    const {newChat, prevChats} = useContext(MyContext);
 
-    useEffect(() => {
-        if(reply === null) {
-            setLatestReply(null); //prevchat load
-            return;
-        }
+    const [previewImage, setPreviewImage] = useState(null);
+    const [copied, setCopied] = useState(false);
 
-        if(!prevChats?.length) return;
+    const handleDownload = async (url) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
 
-        const content = reply.split(" "); //individual words
+    const blobUrl = window.URL.createObjectURL(blob);
 
-        let idx = 0;
-        const interval = setInterval(() => {
-            setLatestReply(content.slice(0, idx+1).join(" "));
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = "ai-image.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
 
-            idx++;
-            if(idx >= content.length) clearInterval(interval);
-        }, 40);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (err) {
+    console.error("Download failed", err);
+  }
+};
 
-        return () => clearInterval(interval);
+const handleCopyImage = async (url) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
 
-    }, [prevChats, reply])
+    await navigator.clipboard.write([
+      new ClipboardItem({ [blob.type]: blob })
+    ]);
+
+    setCopied(true);
+
+    setTimeout(() => {
+      setCopied(false);
+    }, 1500);
+
+  } catch (err) {
+    console.error("Copy failed", err);
+  }
+};
+
+    const iconBtnStyle = {
+      padding: "6px",
+      borderRadius: "8px",
+      border: "none",
+      background: "#000000aa",
+      color: "#fff",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      transition: "all 0.2s ease"
+    };
+
+    console.log("RENDER:", prevChats);
 
     return (
         <>
             {newChat && <h1>Start a New Chat!</h1>}
             <div className="chats">
                 {
-                    prevChats?.slice(0, -1).map((chat, idx) => 
-                        <div className={chat.role === "user"? "userDiv" : "gptDiv"} key={idx}>
-                            {
-                                chat.role === "user"? 
-                                <p className="userMessage">{chat.content}</p> : 
-                                <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{chat.content}</ReactMarkdown>
-                            }
+                    prevChats.map((chat, idx) => 
+                        <div className={chat.role === "user" ? "userDiv" : "gptDiv"} key={idx}>
+                            {chat.role === "user" ? (
+                                <p className="userMessage">{chat.content}</p>
+
+                            ) : chat.type === "loading" ? (
+
+                                <div className="imageSkeleton">
+                                    <p className="skeletonText">Generating image</p>
+                                    <div className="gridPattern"></div>
+                                </div>
+
+                            ) : chat.type === "image" ? (
+
+                                <div className="imageContainer" style={{ position: "relative", display: "inline-block" }}>
+                                    <img
+                                        src={chat.display || chat.content}
+                                        alt="AI generated"
+                                        onClick={() => setPreviewImage(chat.content)}
+                                        style={{
+                                            width: "300px",
+                                            height: "300px",
+                                            objectFit: "cover",
+                                            borderRadius: "10px",
+                                            marginTop: "10px",
+                                            cursor: "pointer"
+                                        }}
+                                    />
+
+                                    <div style={{
+                                        position: "absolute",
+                                        bottom: "10px",
+                                        right: "10px",
+                                        display: "flex",
+                                        gap: "8px"
+                                    }}>
+                                        <button onClick={() => handleCopyImage(chat.content)} style={iconBtnStyle}>
+                                            <FiCopy size={16} />
+                                        </button>
+
+                                        <button onClick={() => handleDownload(chat.content)} style={iconBtnStyle}>
+                                            <FiDownload size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                            ) : (
+                                <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+                                    {chat.content}
+                                </ReactMarkdown>
+                            )}
                         </div>
                     )
                 }
 
-                {
-                    prevChats.length > 0  && (
-                        <>
-                            {
-                                latestReply === null ? (
-                                    <div className="gptDiv" key={"non-typing"} >
-                                    <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{prevChats[prevChats.length-1].content}</ReactMarkdown>
-                                </div>
-                                ) : (
-                                    <div className="gptDiv" key={"typing"} >
-                                     <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{latestReply}</ReactMarkdown>
-                                </div>
-                                )
-
-                            }
-                        </>
-                    )
-                }
-
             </div>
+
+            {copied && (
+              <div
+                style={{
+                  position: "fixed",
+                  bottom: "20px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "#000",
+                  color: "#fff",
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  zIndex: 1000
+                }}
+              >
+                Copied!
+              </div>
+            )}
+
+
+            {previewImage && (
+              <div
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setPreviewImage(null);
+                  }
+                }}
+
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  width: "100vw",
+                  height: "100vh",
+                  background: "rgba(0,0,0,0.9)",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  zIndex: 999
+                }}
+              >
+
+              <button
+                onClick={() => setPreviewImage(null)}
+                style={{
+                  position: "absolute",
+                  top: "20px",
+                  right: "20px",
+                  background: "none",
+                  border: "none",
+                  color: "#fff",
+                  fontSize: "24px",
+                  cursor: "pointer"
+                }}
+              >
+                ✕
+              </button>
+
+
+              <img
+                src={previewImage}
+                alt="preview"
+                style={{
+                  maxWidth: "90%",
+                  maxHeight: "90%",
+                  borderRadius: "10px"
+                }}
+              />
+              </div>
+            )}
         </>
     )
 }

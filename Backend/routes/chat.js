@@ -1,6 +1,7 @@
 import express from "express";
 import Thread from "../models/Thread.js";
-import getOpenAIAPIResponse from "../utils/openai.js";
+import getGeminiAPIResponse from "../utils/gemini.js";
+
 
 const router = express.Router();
 
@@ -71,37 +72,87 @@ router.post("/chat", async(req, res) => {
     const {threadId, message} = req.body;
 
     if(!threadId || !message) {
-        res.status(400).json({error: "missing required fields"});
+        return res.status(400).json({error: "missing required fields"});
     }
 
     try {
+
         let thread = await Thread.findOne({threadId});
 
         if(!thread) {
-            //create a new thread in Db
+            // create new thread
             thread = new Thread({
                 threadId,
                 title: message,
-                messages: [{role: "user", content: message}]
+                messages: []
             });
-        } else {
-            thread.messages.push({role: "user", content: message});
         }
 
-        const assistantReply = await getOpenAIAPIResponse(message);
+        // push user message
+        thread.messages.push({role: "user", content: message});
 
-        thread.messages.push({role: "assistant", content: assistantReply});
+        // build conversation history for Gemini
+        const history = thread.messages.slice(-10).map(msg => ({
+            role: msg.role === "user" ? "user" : "model",
+            parts: [{ text: msg.content }]
+        }));
+
+        // get AI response with history
+        const assistantReply = await getGeminiAPIResponse(message, history);
+
+        // save assistant reply
+        thread.messages.push({
+            role: "assistant",
+            content: assistantReply
+        });
+
         thread.updatedAt = new Date();
 
         await thread.save();
+
         res.json({reply: assistantReply});
+
     } catch(err) {
         console.log(err);
         res.status(500).json({error: "something went wrong"});
     }
 });
 
+router.post("/image-save", async (req, res) => {
+    const { threadId, prompt, imageUrl } = req.body;
 
+    try {
+        let thread = await Thread.findOne({ threadId });
 
+        if (!thread) {
+            thread = new Thread({
+                threadId,
+                title: prompt,
+                messages: []
+            });
+        }
+
+        // ✅ save user prompt
+        thread.messages.push({
+            role: "user",
+            content: prompt
+        });
+
+        // ✅ save image (THIS IS YOUR LINE)
+        thread.messages.push({
+            role: "assistant",
+            content: imageUrl,
+            type: "image"
+        });
+
+        await thread.save();
+
+        res.json({ success: true });
+
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ error: "Failed to save image" });
+    }
+});
 
 export default router;
