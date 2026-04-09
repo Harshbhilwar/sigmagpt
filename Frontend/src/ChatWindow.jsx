@@ -37,7 +37,7 @@ function ChatWindow() {
 
     try {
         console.log("Fetching image...");
-        const response = await fetch("http://localhost:8080/api/image", {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/image`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -47,7 +47,7 @@ function ChatWindow() {
 
         const data = await response.json();
 
-        await fetch("http://localhost:8080/api/image-save", {
+        await fetch(`${import.meta.env.VITE_API_URL}/api/image-save`, {
     method: "POST",
     headers: {
         "Content-Type": "application/json"
@@ -136,7 +136,7 @@ function ChatWindow() {
     };
 
     try {
-        const response = await fetch("http://localhost:8080/api/chat", options);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/chat`, options);
         if (!response.ok) {
             throw new Error("Failed to generate image");
         }
@@ -165,7 +165,7 @@ useEffect(() => {
     useEffect(() => {
   const fetchChats = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/thread/${currThreadId}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/thread/${currThreadId}`);
       const data = await res.json();
 
       if (data && data.length > 0) {

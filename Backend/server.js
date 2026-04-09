@@ -13,9 +13,7 @@ const app = express();
 const PORT = 8080;
 
 app.use(express.json());
-app.use(cors({
-  origin: "*"
-}));
+app.use(cors());
 
 app.use("/api", chatRoutes);
 
@@ -44,7 +42,7 @@ app.post("/api/image", async (req, res) => {
     console.log("Generated Image URL:", imageUrl); // 👈 IMPORTANT
 
     return res.json({
-      image: `http://localhost:8080/api/proxy-image?url=${encodeURIComponent(imageUrl)}`, // for display
+      image: `http:localhost:8080/api/proxy-image?url=${encodeURIComponent(imageUrl)}`, // for display
       realImage: imageUrl, // for saving
       source: "pollinations"
     });
