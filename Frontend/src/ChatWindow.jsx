@@ -11,6 +11,7 @@ function ChatWindow() {
     const [isImageMode, setIsImageMode] = useState(false);
 
     const generateImage = async (imagePrompt, originalPrompt) => {
+        if (!imagePrompt || imagePrompt.trim() === "") return;
         setNewChat(false);
         console.log("Calling image API...");
 
@@ -94,14 +95,18 @@ function ChatWindow() {
 
         if (!prompt.trim()) return;
 
+        setIsImageMode(false);
+
+        const lowerPrompt = prompt.toLowerCase().trim();
     
     if (
-        prompt.startsWith("/image") ||
-        prompt.toLowerCase().includes("generate image")
+        lowerPrompt.startsWith("/image") ||
+        lowerPrompt.startsWith("generate image of") ||
+        lowerPrompt.startsWith("generate image ")
     ) {
         setIsImageMode(true);
-        const imagePrompt = prompt
-        .toLowerCase()
+
+        const imagePrompt = lowerPrompt
         .replace("generate image of", "")
         .replace("generate image", "")
         .replace("/image", "")
@@ -115,7 +120,7 @@ function ChatWindow() {
         }
 
          // ✅ call fixed function
-        generateImage(imagePrompt, prompt);
+        await generateImage(imagePrompt, prompt);
 
         return; // VERY IMPORTANT
     }
