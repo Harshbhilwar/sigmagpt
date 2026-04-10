@@ -32,7 +32,7 @@ function ChatWindow() {
   resolve();
 });
 
-        await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
         
 
     try {

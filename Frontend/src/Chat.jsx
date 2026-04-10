@@ -73,7 +73,9 @@ const handleCopyImage = async (url) => {
             {newChat && <h1>Start a New Chat!</h1>}
             <div className="chats">
                 {
-                    prevChats.map((chat, idx) => 
+                    prevChats.map((chat, idx) => {
+                      console.log("IMAGE URL:", chat.content);
+                      return (
                         <div className={chat.role === "user" ? "userDiv" : "gptDiv"} key={idx}>
                             {chat.role === "user" ? (
                                 <p className="userMessage">{chat.content}</p>
@@ -89,7 +91,7 @@ const handleCopyImage = async (url) => {
 
                                 <div className="imageContainer" style={{ position: "relative", display: "inline-block" }}>
                                     <img
-                                        src={chat.display || chat.content}
+                                        src={chat.content}
                                         alt="AI generated"
                                         onClick={() => setPreviewImage(chat.content)}
                                         style={{
@@ -125,6 +127,10 @@ const handleCopyImage = async (url) => {
                                 </ReactMarkdown>
                             )}
                         </div>
+                      )
+                    }
+
+                        
                     )
                 }
 
