@@ -42,7 +42,7 @@ app.post("/api/image", async (req, res) => {
     console.log("Generated Image URL:", imageUrl); // 👈 IMPORTANT
 
     return res.json({
-      image: `http:localhost:8080/api/proxy-image?url=${encodeURIComponent(imageUrl)}`, // for display
+      image: `${process.env.BASE_URL}/api/proxy-image?url=${encodeURIComponent(imageUrl)}`,
       realImage: imageUrl, // for saving
       source: "pollinations"
     });
