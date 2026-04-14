@@ -16,7 +16,7 @@ const getGeminiAPIResponse = async (message) => {
   if (lower.includes("date")) return `Today is ${new Date().toDateString()}`;
   if (lower.includes("who built you")) return "I was built by Harsh Bhilwar.";
 
-  const prompt = `You are SigmaGPT, built by Harsh Bhilwar. User Question: ${message}`;
+  const prompt = `You are SigmaAI, built by Harsh Bhilwar. User Question: ${message}`;
 
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
