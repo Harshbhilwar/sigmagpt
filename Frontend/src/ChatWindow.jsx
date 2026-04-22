@@ -3,6 +3,7 @@ import Chat from "./Chat.jsx";
 import { MyContext } from "./MyContext.jsx";
 import { useContext, useState, useEffect } from "react";
 import {ScaleLoader} from "react-spinners";
+import { track } from "@vercel/analytics";
 
 function ChatWindow() {
     const {prompt, setPrompt, reply, setReply, currThreadId, prevChats, setPrevChats, setNewChat} = useContext(MyContext);
@@ -11,9 +12,14 @@ function ChatWindow() {
     const [isImageMode, setIsImageMode] = useState(false);
 
     const generateImage = async (imagePrompt, originalPrompt) => {
+        
         if (!imagePrompt || imagePrompt.trim() === "") return;
+        setLoading(true);
         setNewChat(false);
         console.log("Calling image API...");
+        track("image_generation_started", {
+            length: imagePrompt.length,
+        });
 
 
     const tempId = Date.now();
@@ -46,6 +52,10 @@ function ChatWindow() {
             body: JSON.stringify({ prompt: imagePrompt })
         });
 
+        if (!response.ok) {
+            throw new Error("Image API failed");
+        }
+
         const data = await response.json();
 
         await fetch(`${import.meta.env.VITE_API_URL}/api/image-save`, {
@@ -60,6 +70,10 @@ function ChatWindow() {
     })
 });
         console.log("Image URL:", data.image);
+        track("image_generated_success", {
+            type: "image",
+            length: imagePrompt.length
+        });
 
         console.log("Image source:", data.source);
 
@@ -84,7 +98,12 @@ function ChatWindow() {
 
     } catch (err) {
         console.log(err);
+        track("api_error", {
+            type: "image",
+            message: err.message
+        });
         setReply("Image generation failed");
+        setLoading(false);
     }
 
     
@@ -94,6 +113,10 @@ function ChatWindow() {
         console.log("Prompt:", prompt);
 
         if (!prompt.trim()) return;
+
+        track("prompt_sent", {
+            length: prompt.length,
+        });
 
         setIsImageMode(false);
 
@@ -143,14 +166,21 @@ function ChatWindow() {
     try {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/api/chat`, options);
         if (!response.ok) {
-            throw new Error("Failed to generate image");
+            throw new Error("Chat API failed");
         }
         const res = await response.json();
+        track("ai_response_generated", {
+            type: "chat",
+        });
 
         setReply(res.reply);
 
     } catch (err) {
         console.log(err);
+        track("api_error", {
+           type: "chat",
+           message: err.message
+        });
     }
 
     setLoading(false);
@@ -218,9 +248,9 @@ useEffect(() => {
             {
                 isOpen && 
                 <div className="dropDown">
-                    <div className="dropDownItem"><i class="fa-solid fa-gear"></i> Settings</div>
-                    <div className="dropDownItem"><i class="fa-solid fa-cloud-arrow-up"></i> Upgrade plan</div>
-                    <div className="dropDownItem"><i class="fa-solid fa-arrow-right-from-bracket"></i> Log out</div>
+                    <div className="dropDownItem"><i className="fa-solid fa-gear"></i> Settings</div>
+                    <div className="dropDownItem"><i className="fa-solid fa-cloud-arrow-up"></i> Upgrade plan</div>
+                    <div className="dropDownItem"><i className="fa-solid fa-arrow-right-from-bracket"></i> Log out</div>
                 </div>
             }
             <Chat></Chat>
